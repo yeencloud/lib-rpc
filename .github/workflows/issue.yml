@@ -1,0 +1,11 @@
+name: Auto assign created issue
+
+on:
+  issues:
+    types: [ opened ]
+
+jobs:
+  assign-issue:
+    uses: yeencloud/dpl-ci/.github/workflows/auto-assign-issue.yml@main
+    secrets:
+      PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
