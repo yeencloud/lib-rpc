@@ -9,3 +9,7 @@ lint:
 
 test:
 	go test -race -v ./...
+
+proto:
+	chmod +x ./.github/scripts/generate-proto.sh
+	./.github/scripts/generate-proto.sh

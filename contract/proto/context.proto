@@ -1,0 +1,5 @@
+syntax = "proto3";
+
+message RequestContext {
+  string correlation_id = 1;
+}

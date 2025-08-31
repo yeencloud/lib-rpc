@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+enum ErrorType {
+  UNKNOWN = 0;
+  INVALID_ARGUMENT = 1;
+  NOT_FOUND = 2;
+  ALREADY_EXISTS = 3;
+  PERMISSION_DENIED = 4;
+  UNAUTHENTICATED = 5;
+  INTERNAL_ERROR = 6;
+}
+
+message Error {
+  int32 code = 1;
+  string message = 2;
+  ErrorType type = 3;
+}
+
