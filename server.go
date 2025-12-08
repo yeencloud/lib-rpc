@@ -78,7 +78,7 @@ func AuditInterceptor() grpc.UnaryServerInterceptor {
 		_ = md
 		m, err := handler(ctx, req)
 		if err != nil {
-			log.Errorln("RPC failed with error: %v", err)
+			log.Errorf("RPC failed with error: %v", err)
 		} else {
 			log.Infoln("Succeeded")
 		}
@@ -88,7 +88,7 @@ func AuditInterceptor() grpc.UnaryServerInterceptor {
 }
 
 func NewRPCServer(config *config.Config) *Server {
-	println("NewRPCServer: Initializing gRPC server")
+	log.Infoln("NewRPCServer: Initializing gRPC server")
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
@@ -108,13 +108,16 @@ func NewRPCServer(config *config.Config) *Server {
 	}
 }
 
-func (s *Server) Start() {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.config.Port))
+func (s *Server) Start(ctx context.Context) {
+	addr := fmt.Sprintf(":%d", s.config.Port)
+
+	lc := net.ListenConfig{}
+	lis, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("failed to listen: %v", err)
 	}
 
 	if err := s.RpcServer.Serve(lis); err != nil {
-		log.Fatalln(err)
+		log.Fatalf("failed to serve: %v", err)
 	}
 }

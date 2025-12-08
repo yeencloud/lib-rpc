@@ -31,8 +31,14 @@ func (c *RPCClient) Connect() error {
 			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
 
+			val := ctx.Value("correlationid")
+			corrID, ok := val.(string)
+			if !ok {
+				corrID = ""
+			}
+
 			md := metadata.Pairs(
-				domain.CorrelationIDMetadataKey, ctx.Value("correlationid").(string),
+				domain.CorrelationIDMetadataKey, corrID,
 				domain.RequestIDMetadataKey, uuid.New().String(),
 			)
 			ctx = metadata.NewOutgoingContext(ctx, md)
