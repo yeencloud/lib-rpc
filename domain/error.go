@@ -1,29 +1,29 @@
 package domain
 
-import "net/http"
+import "github.com/yeencloud/lib-shared/apperr"
 
-// MARK: - Bad Request
-
-type BadRequestError struct {
+// MARK: - RemoteError
+type RemoteError struct {
+	errtype apperr.ErrorType
 }
 
-func (s BadRequestError) Error() string {
-	return "bad request"
+func (e RemoteError) Error() string {
+	return string(e.Type())
 }
 
-func (s BadRequestError) RestCode() int {
-	return http.StatusBadRequest
+func (e RemoteError) Type() apperr.ErrorType {
+	return e.errtype
 }
 
-// MARK: - Service Unreachable
-
-type ServiceUnreachableError struct {
+func NewRemoteError(errtype apperr.ErrorType) error {
+	return RemoteError{errtype}
 }
 
-func (s ServiceUnreachableError) Error() string {
-	return "service unreachable"
+// MARK: - CallPanicedError
+type CallPanicedError struct {
+	RecoverInfo string
 }
 
-func (s ServiceUnreachableError) RestCode() int {
-	return http.StatusServiceUnavailable
-}
+func (e CallPanicedError) Error() string { return e.RecoverInfo }
+
+func (e CallPanicedError) Type() apperr.ErrorType { return apperr.ErrorTypeInternal }

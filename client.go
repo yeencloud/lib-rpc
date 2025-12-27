@@ -7,12 +7,11 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/yeencloud/lib-rpc/domain"
+	"github.com/yeencloud/lib-shared/apperr"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 )
 
 type RPCClient struct {
@@ -49,18 +48,15 @@ func (c *RPCClient) Connect() error {
 			err := invoker(ctx, method, req, reply, cc, opts...)
 
 			if err != nil {
-				st, ok := status.FromError(err)
-				if ok && st.Code() == codes.InvalidArgument {
-					return domain.BadRequestError{}
-				}
-				return err
+				return mapRpcErrorToRemoteError(err)
 			}
 
 			return nil
 		}))
+
 	if err != nil {
 		log.Errorf("grpc.NewClient failed: %v", err)
-		return domain.ServiceUnreachableError{}
+		return apperr.UnavailableServiceError{}
 	}
 
 	c.Connection = conn

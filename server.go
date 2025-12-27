@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 
@@ -9,13 +10,15 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/yeencloud/lib-rpc/domain"
 	"github.com/yeencloud/lib-rpc/domain/config"
+	"github.com/yeencloud/lib-shared/apperr"
 	logShared "github.com/yeencloud/lib-shared/log"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	grpcReflection "google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
-
-	"google.golang.org/grpc"
+	"google.golang.org/protobuf/protoadapt"
 )
 
 type Server struct {
@@ -69,6 +72,22 @@ func StartTracingRequest() grpc.UnaryServerInterceptor {
 	}
 }
 
+func handleError(err error) error {
+	errStatus := status.New(mapErrorTypeToGrpcCode(err), err.Error())
+
+	var detailedError apperr.DetailedError
+	if errors.As(err, &detailedError) {
+		details := detailedError.Details()
+		d := &errdetails.ErrorInfo{
+			Reason:   details.Reason,
+			Metadata: details.Details,
+		}
+		errStatus, _ = errStatus.WithDetails(protoadapt.MessageV1Of(d))
+	}
+
+	return errStatus.Err()
+}
+
 func AuditInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		md, ok := metadata.FromIncomingContext(ctx)
@@ -77,13 +96,31 @@ func AuditInterceptor() grpc.UnaryServerInterceptor {
 		}
 		_ = md
 		m, err := handler(ctx, req)
-		if err != nil {
-			log.Errorf("RPC failed with error: %v", err)
-		} else {
-			log.Infoln("Succeeded")
+
+		if err == nil {
+			log.Infoln("RPC call succeeded")
+			return m, nil
 		}
 
-		return m, err
+		err = handleError(err)
+		log.Errorf("RPC call failed with error: %v", err)
+		return nil, err
+	}
+}
+
+func RecoverPanic() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (data interface{}, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Infoln("Recovered from panic", r)
+
+				err = domain.CallPanicedError{
+					RecoverInfo: fmt.Sprint(r),
+				}
+			}
+		}()
+
+		return handler(ctx, req)
 	}
 }
 
@@ -97,6 +134,7 @@ func NewRPCServer(config *config.Config) *Server {
 			RequireValidUUID(domain.RequestIDMetadataKey),
 			RequireValidUUID(domain.CorrelationIDMetadataKey),
 			AuditInterceptor(),
+			RecoverPanic(),
 		),
 	)
 
